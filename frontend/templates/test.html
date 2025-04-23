@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}Тест - ProjectFlow{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Тестовая страница</h1>
+    <p>Если вы видите эту страницу, базовая маршрутизация работает.</p>
+    <button id="testRedirect" class="btn btn-primary">Тест перенаправления</button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('testRedirect').addEventListener('click', function() {
+        window.location.href = '/projects/';
+    });
+</script>
+{% endblock %}

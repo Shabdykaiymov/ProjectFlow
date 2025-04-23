@@ -1,0 +1,335 @@
+{% extends 'base.html' %}
+
+{% block title %}Аналитика - ProjectFlow{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4">Аналитика проектов</h1>
+
+    <!-- Выбор проекта -->
+    <div class="mb-4">
+        <label for="projectSelect" class="form-label">Выберите проект</label>
+        <select class="form-select" id="projectSelect">
+            <option value="">Все проекты</option>
+            <!-- Список проектов будет загружен через JavaScript -->
+        </select>
+    </div>
+
+    <div class="row">
+        <!-- Статистика по статусам задач -->
+        <div class="col-md-6 mb-4">
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <h5>Распределение задач по статусам</h5>
+                </div>
+                <div class="analytics-card-body">
+                    <canvas id="tasksByStatusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Статистика по исполнителям -->
+        <div class="col-md-6 mb-4">
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <h5>Распределение задач по исполнителям</h5>
+                </div>
+                <div class="analytics-card-body">
+                    <canvas id="tasksByUserChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Прогресс проекта -->
+        <div class="col-md-12 mb-4" id="projectProgressContainer" style="display: none;">
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <h5>Прогресс проекта: <span id="projectName"></span></h5>
+                </div>
+                <div class="analytics-card-body">
+                    <div class="progress progress-big">
+                        <div id="projectProgress" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                    </div>
+                    <div class="row text-center mt-3">
+                        <div class="col">
+                            <h5 id="totalTasks">0</h5>
+                            <small class="text-muted">Всего задач</small>
+                        </div>
+                        <div class="col">
+                            <h5 id="completedTasks">0</h5>
+                            <small class="text-muted">Завершено</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Переменные для хранения экземпляров графиков
+    let statusChart = null;
+    let userChart = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Загружаем список проектов
+        loadProjects();
+
+        // Загружаем статистику по умолчанию
+        loadTasksByStatus();
+        loadTasksByUser();
+
+        // Обработчик выбора проекта
+        document.getElementById('projectSelect').addEventListener('change', function() {
+            const projectId = this.value;
+
+            // Загружаем статистику для выбранного проекта
+            loadTasksByStatus(projectId);
+            loadTasksByUser(projectId);
+
+            // Если выбран конкретный проект, показываем его прогресс
+            if (projectId) {
+                loadProjectProgress(projectId);
+                document.getElementById('projectProgressContainer').style.display = 'block';
+            } else {
+                document.getElementById('projectProgressContainer').style.display = 'none';
+            }
+        });
+    });
+  /**
+     * Загружает список проектов
+     */
+    async function loadProjects() {
+        try {
+            const response = await fetch('/api/projects/', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить список проектов');
+            }
+
+            const data = await response.json();
+            const projects = data.results || data;
+
+            // Заполняем select проектов
+            const projectSelect = document.getElementById('projectSelect');
+
+            projects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.id;
+                option.textContent = project.name;
+                projectSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Ошибка при загрузке проектов:', error);
+            alert('Не удалось загрузить список проектов. Пожалуйста, попробуйте позже.');
+        }
+    }
+
+    /**
+     * Загружает статистику задач по статусам
+     */
+    async function loadTasksByStatus(projectId = null) {
+        try {
+            let url = '/api/analytics/tasks-by-status/';
+            if (projectId) {
+                url += `?project_id=${projectId}`;
+            }
+
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить статистику');
+            }
+
+            const data = await response.json();
+
+            // Создаем или обновляем график
+            const ctx = document.getElementById('tasksByStatusChart').getContext('2d');
+
+            if (statusChart) {
+                statusChart.data.labels = data.labels;
+                statusChart.data.datasets[0].data = data.data;
+                statusChart.data.datasets[0].backgroundColor = data.backgroundColor;
+                statusChart.update();
+            } else {
+                statusChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            data: data.data,
+                            backgroundColor: data.backgroundColor
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Ошибка при загрузке статистики по статусам:', error);
+            document.getElementById('tasksByStatusChart').parentNode.innerHTML = `
+                <div class="alert alert-danger">
+                    Не удалось загрузить статистику. Пожалуйста, попробуйте позже.
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Загружает статистику задач по пользователям
+     */
+    async function loadTasksByUser(projectId = null) {
+        try {
+            let url = '/api/analytics/tasks-by-user/';
+            if (projectId) {
+                url += `?project_id=${projectId}`;
+            }
+
+            const response = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить статистику');
+            }
+
+            const data = await response.json();
+            const chartContainer = document.getElementById('tasksByUserChart').parentNode;
+
+            // Проверяем, есть ли данные для отображения
+            if (!data.labels || data.labels.length === 0) {
+                chartContainer.innerHTML = `
+                    <div class="alert alert-info">
+                        Нет данных для отображения. Возможно, задачи не назначены исполнителям.
+                    </div>
+                `;
+                // Уничтожаем график, если он существует
+                if (userChart) {
+                    userChart.destroy();
+                    userChart = null;
+                }
+                return;
+            }
+
+            // Если контейнер был заменен уведомлением, восстанавливаем canvas
+            if (!document.getElementById('tasksByUserChart')) {
+                chartContainer.innerHTML = `<canvas id="tasksByUserChart"></canvas>`;
+            }
+
+            // Создаем или обновляем график
+            const ctx = document.getElementById('tasksByUserChart').getContext('2d');
+
+            if (userChart) {
+                userChart.destroy(); // Уничтожаем текущий график
+            }
+
+            // Создаем новый график
+            userChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: 'Количество задач',
+                        data: data.data,
+                        backgroundColor: data.backgroundColor
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Ошибка при загрузке статистики по пользователям:', error);
+            document.getElementById('tasksByUserChart').parentNode.innerHTML = `
+                <div class="alert alert-danger">
+                    Не удалось загрузить статистику. Пожалуйста, попробуйте позже.
+                </div>
+            `;
+            // Сбрасываем график
+            if (userChart) {
+                userChart.destroy();
+                userChart = null;
+            }
+        }
+    }
+
+    /**
+     * Загружает прогресс проекта
+     */
+    async function loadProjectProgress(projectId) {
+        try {
+            // Загружаем информацию о проекте
+            const projectResponse = await fetch(`/api/projects/${projectId}/`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!projectResponse.ok) {
+                throw new Error('Не удалось загрузить данные проекта');
+            }
+
+            const project = await projectResponse.json();
+
+            // Загружаем прогресс проекта
+            const progressResponse = await fetch(`/api/analytics/project-progress/${projectId}/`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!progressResponse.ok) {
+                throw new Error('Не удалось загрузить прогресс проекта');
+            }
+
+            const progress = await progressResponse.json();
+
+            // Обновляем интерфейс
+            document.getElementById('projectName').textContent = project.name;
+            document.getElementById('projectProgress').style.width = `${progress.progress_percentage}%`;
+            document.getElementById('projectProgress').textContent = `${progress.progress_percentage}%`;
+            document.getElementById('projectProgress').setAttribute('aria-valuenow', progress.progress_percentage);
+            document.getElementById('totalTasks').textContent = progress.total_tasks;
+            document.getElementById('completedTasks').textContent = progress.completed_tasks;
+        } catch (error) {
+            console.error('Ошибка при загрузке прогресса проекта:', error);
+            document.getElementById('projectProgressContainer').innerHTML = `
+                <div class="alert alert-danger">
+                    Не удалось загрузить прогресс проекта. Пожалуйста, попробуйте позже.
+                </div>
+            `;
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+
+{% block title %}Проекты - ProjectFlow{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Мои проекты</h1>
+        <button class="btn btn-primary" id="newProjectBtn">
+            <i class="fas fa-plus me-1"></i>Новый проект
+        </button>
+    </div>
+    
+    <div class="row" id="projectsContainer">
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Загрузка...</span>
+            </div>
+            <p class="mt-2">Загрузка проектов...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для создания/редактирования проекта -->
+<div class="modal fade" id="projectModal" tabindex="-1" aria-labelledby="projectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="projectModalLabel">Новый проект</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="projectForm">
+                    <input type="hidden" id="projectId">
+                    <div class="mb-3">
+                        <label for="projectName" class="form-label">Название проекта</label>
+                        <input type="text" class="form-control" id="projectName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="projectDescription" class="form-label">Описание</label>
+                        <textarea class="form-control" id="projectDescription" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="saveProjectBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Загружаем проекты
+        loadProjects();
+        
+        // Обработчики событий
+        document.getElementById('newProjectBtn').addEventListener('click', function() {
+            openProjectModal();
+        });
+        
+        document.getElementById('saveProjectBtn').addEventListener('click', function() {
+            saveProject();
+        });
+    });
+    
+    /**
+     * Загружает список проектов
+     */
+    async function loadProjects() {
+        try {
+            const response = await fetch('/api/projects/', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить проекты');
+            }
+            
+            const data = await response.json();
+            displayProjects(data.results || data);
+        } catch (error) {
+            console.error('Ошибка при загрузке проектов:', error);
+            document.getElementById('projectsContainer').innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-danger">
+                        Не удалось загрузить проекты. Пожалуйста, попробуйте позже.
+                    </div>
+                </div>
+            `;
+        }
+    }
+    
+    /**
+     * Отображает список проектов
+     */
+    function displayProjects(projects) {
+        const container = document.getElementById('projectsContainer');
+        
+        if (projects.length === 0) {
+            container.innerHTML = `
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        У вас пока нет проектов. Создайте свой первый проект!
+                    </div>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = '';
+        
+        projects.forEach(project => {
+            const card = document.createElement('div');
+            card.className = 'col-md-4 mb-4';
+            card.innerHTML = `
+                <div class="card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">${project.name}</h5>
+                        <p class="card-text">${project.description || 'Нет описания'}</p>
+                        <div class="progress mb-3">
+                            <div class="progress-bar" role="progressbar" style="width: ${project.progress_percentage}%;" 
+                                aria-valuenow="${project.progress_percentage}" aria-valuemin="0" aria-valuemax="100">
+                                ${project.progress_percentage}%
+                            </div>
+                        </div>
+                        <p class="card-text"><small class="text-muted">Задач: ${project.task_count}</small></p>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-between">
+                            <a href="/projects/${project.id}/" class="btn btn-primary btn-sm">
+                                <i class="fas fa-eye me-1"></i>Открыть
+                            </a>
+                            <button class="btn btn-outline-secondary btn-sm edit-project" data-id="${project.id}">
+                                <i class="fas fa-edit me-1"></i>Редактировать
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+            
+            // Добавляем обработчик для редактирования
+            card.querySelector('.edit-project').addEventListener('click', function() {
+                openProjectModal(project);
+            });
+        });
+    }
+    
+    /**
+     * Открывает модальное окно для создания/редактирования проекта
+     */
+    function openProjectModal(project = null) {
+        // Очищаем форму
+        document.getElementById('projectForm').reset();
+        document.getElementById('projectId').value = '';
+        
+        // Устанавливаем заголовок модального окна
+        document.getElementById('projectModalLabel').textContent = project ? 'Редактирование проекта' : 'Новый проект';
+        
+        // Если передан проект, заполняем форму его данными
+        if (project) {
+            document.getElementById('projectId').value = project.id;
+            document.getElementById('projectName').value = project.name;
+            document.getElementById('projectDescription').value = project.description || '';
+        }
+        
+        // Открываем модальное окно
+        const modal = new bootstrap.Modal(document.getElementById('projectModal'));
+        modal.show();
+    }
+    
+    /**
+     * Сохраняет проект
+     */
+    async function saveProject() {
+        const projectId = document.getElementById('projectId').value;
+        const name = document.getElementById('projectName').value;
+        const description = document.getElementById('projectDescription').value;
+        
+        if (!name) {
+            alert('Пожалуйста, введите название проекта');
+            return;
+        }
+        
+        try {
+            const url = projectId ? `/api/projects/${projectId}/` : '/api/projects/';
+            const method = projectId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify({ name, description })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Не удалось сохранить проект');
+            }
+            
+            // Закрываем модальное окно
+            const modal = bootstrap.Modal.getInstance(document.getElementById('projectModal'));
+            modal.hide();
+            
+            // Перезагружаем список проектов
+            loadProjects();
+        } catch (error) {
+            console.error('Ошибка при сохранении проекта:', error);
+            alert('Не удалось сохранить проект. Пожалуйста, попробуйте позже.');
+        }
+    }
+</script>
+{% endblock %}

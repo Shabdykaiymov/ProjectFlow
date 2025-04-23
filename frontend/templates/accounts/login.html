@@ -1,0 +1,121 @@
+{% extends 'auth_base.html' %}
+
+{% block title %}Вход - ProjectFlow{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card mt-5">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Вход в систему</h4>
+            </div>
+            <div class="card-body">
+                <form id="loginForm">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Имя пользователя</label>
+                        <input type="text" class="form-control" id="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Пароль</label>
+                        <input type="password" class="form-control" id="password" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Войти</button>
+                    </div>
+                </form>
+                <div class="alert alert-danger mt-3 d-none" id="errorMessage"></div>
+            </div>
+            <div class="card-footer text-center">
+                <p class="mb-0">Нет аккаунта? <a href="/register/">Зарегистрироваться</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Функция для получения CSRF-токена из cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const loginForm = document.getElementById('loginForm');
+        const errorMessage = document.getElementById('errorMessage');
+
+        loginForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            console.log('Отправка запроса на авторизацию...');
+            const csrftoken = getCookie('csrftoken');
+
+            fetch('/api/auth/login/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrftoken
+                },
+                body: JSON.stringify({ username, password })
+            })
+            .then(response => {
+                console.log('Получен ответ, статус:', response.status);
+                return response.json().then(data => {
+                    if (!response.ok) {
+                        throw new Error(data.detail || 'Ошибка входа');
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                console.log('Полное содержимое ответа:', data);
+                console.log('Попытка сохранения токенов...');
+
+                // Проверяем как именно API вернул токены
+                if (data.access) {
+                    // Сохраняем токены из корня объекта
+                    localStorage.setItem('access_token', data.access);
+                    localStorage.setItem('refresh_token', data.refresh);
+                    console.log('Токены сохранены из корня объекта');
+                } else if (data.tokens && data.tokens.access) {
+                    // Сохраняем токены из вложенного объекта tokens
+                    localStorage.setItem('access_token', data.tokens.access);
+                    localStorage.setItem('refresh_token', data.tokens.refresh);
+                    console.log('Токены сохранены из объекта tokens');
+                } else {
+                    console.error('Не найдены токены в ответе!');
+                    console.log('Структура ответа:', JSON.stringify(data));
+                    throw new Error('Ошибка при получении токенов');
+                }
+
+                // Перенаправление с задержкой
+                console.log('Перенаправление на /projects/ через 1 секунду...');
+                setTimeout(function() {
+                    // Устанавливаем флаг авторизации
+                    localStorage.setItem('user_authenticated', 'true');
+                    window.location.href = '/projects/';
+                }, 1000);
+            })
+            .catch(error => {
+                console.error('Ошибка при входе:', error);
+                errorMessage.textContent = error.message;
+                errorMessage.classList.remove('d-none');
+            });
+        });
+    });
+</script>
+{% endblock %}

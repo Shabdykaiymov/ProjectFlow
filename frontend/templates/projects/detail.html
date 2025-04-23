@@ -1,0 +1,1076 @@
+{% extends 'base.html' %}
+
+{% block title %}Проект - ProjectFlow{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Заголовок страницы с информацией о проекте -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="d-flex align-items-center">
+                <h1 id="projectTitle" class="me-3">Загрузка...</h1>
+                <div>
+                    <button id="editProjectBtn" class="btn btn-sm btn-outline-primary me-2">
+                        <i class="fas fa-edit"></i> Редактировать
+                    </button>
+                    <button id="manageMembers" class="btn btn-sm btn-outline-info">
+                        <i class="fas fa-users"></i> Участники
+                    </button>
+                </div>
+            </div>
+            <p id="projectDescription" class="text-muted">Загрузка описания проекта...</p>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Прогресс проекта</h5>
+                    <div class="progress progress-big">
+                        <div id="projectProgress" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+                    </div>
+                    <div class="row text-center mt-3">
+                        <div class="col">
+                            <h5 id="totalTasks">0</h5>
+                            <small class="text-muted">Всего задач</small>
+                        </div>
+                        <div class="col">
+                            <h5 id="completedTasks">0</h5>
+                            <small class="text-muted">Завершено</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Канбан-доска -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2>Канбан-доска</h2>
+                <button id="newTaskBtn" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i>Новая задача
+                </button>
+            </div>
+
+            <div class="kanban-board" id="kanbanBoard">
+                <!-- Канбан-доска будет загружена через JavaScript -->
+                <div class="text-center py-5 w-100">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Загрузка...</span>
+                    </div>
+                    <p class="mt-2">Загрузка канбан-доски...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для создания/редактирования задачи -->
+<div class="modal fade" id="taskModal" tabindex="-1" aria-labelledby="taskModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="taskModalLabel">Новая задача</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+            <div class="modal-body">
+                <form id="taskForm">
+                    <input type="hidden" id="taskId" value="">
+
+                    <div class="mb-3">
+                        <label for="taskTitle" class="form-label">Заголовок</label>
+                        <input type="text" class="form-control" id="taskTitle" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="taskDescription" class="form-label">Описание</label>
+                        <textarea class="form-control" id="taskDescription" rows="3"></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label for="taskStatus" class="form-label">Статус</label>
+                            <select class="form-select" id="taskStatus" required>
+                                <option value="Новая">Новая</option>
+                                <option value="В работе">В работе</option>
+                                <option value="На проверке">На проверке</option>
+                                <option value="Завершена">Завершена</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="taskPriority" class="form-label">Приоритет</label>
+                            <select class="form-select" id="taskPriority">
+                                <option value="Без приоритета">Без приоритета</option>
+                                <option value="Низкий">Низкий</option>
+                                <option value="Средний">Средний</option>
+                                <option value="Высокий">Высокий</option>
+                                <option value="Критический">Критический</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label for="taskAssignee" class="form-label">Исполнитель</label>
+                            <select class="form-select" id="taskAssignee">
+                                <option value="">Не назначен</option>
+                                <!-- Список участников будет загружен через JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="taskDueDate" class="form-label">Срок выполнения</label>
+                        <input type="datetime-local" class="form-control" id="taskDueDate">
+                    </div>
+                </form>
+
+                <!-- Секция комментариев -->
+                <div class="mt-4" id="commentsSection" style="display: none;">
+                    <h5>Комментарии</h5>
+                    <div id="commentsList" class="mb-3">
+                        <!-- Комментарии будут загружены через JavaScript -->
+                        <div class="text-center py-3">
+                            <small class="text-muted">Комментариев пока нет</small>
+                        </div>
+                    </div>
+                    <div class="d-flex">
+                        <textarea class="form-control me-2" id="newComment" rows="2" placeholder="Напишите комментарий..."></textarea>
+                        <button class="btn btn-primary" id="addCommentBtn">Отправить</button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="saveTaskBtn">Сохранить</button>
+                <button type="button" class="btn btn-outline-success" id="syncGoogleCalendarBtn">
+                    <i class="fas fa-calendar-alt me-1"></i> Синхронизировать с Google Calendar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для управления участниками проекта -->
+<div class="modal fade" id="membersModal" tabindex="-1" aria-labelledby="membersModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="membersModalLabel">Управление участниками</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="newMember" class="form-label">Добавить участника</label>
+                    <div class="input-group">
+                        <select class="form-select" id="newMember">
+                            <option value="">Выберите пользователя</option>
+                            <!-- Список пользователей будет загружен через JavaScript -->
+                        </select>
+                        <button class="btn btn-primary" id="addMemberBtn">Добавить</button>
+                    </div>
+                </div>
+
+                <h6 class="mt-4 mb-3">Текущие участники</h6>
+                <ul class="list-group" id="membersList">
+                    <!-- Список участников будет загружен через JavaScript -->
+                    <li class="list-group-item text-center">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">Загрузка...</span>
+                        </div>
+                        <span class="ms-2">Загрузка участников...</span>
+                    </li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для редактирования проекта -->
+<div class="modal fade" id="projectModal" tabindex="-1" aria-labelledby="projectModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="projectModalLabel">Редактирование проекта</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="projectForm">
+                    <input type="hidden" id="projectId">
+                    <div class="mb-3">
+                        <label for="projectName" class="form-label">Название проекта</label>
+                        <input type="text" class="form-control" id="projectName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="projectDescription" class="form-label">Описание</label>
+                        <textarea class="form-control" id="projectDescription" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="saveProjectBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Получаем ID проекта из URL
+        const projectId = window.location.pathname.split('/')[2];
+
+        // Загружаем данные проекта
+        loadProjectData(projectId);
+
+        // Загружаем канбан-доску
+        loadKanban(projectId);
+
+        // Добавляем обработчики событий
+        document.getElementById('editProjectBtn').addEventListener('click', function() {
+            openEditProjectModal(projectId);
+        });
+
+        document.getElementById('manageMembers').addEventListener('click', function() {
+            openMembersModal(projectId);
+        });
+
+        document.getElementById('newTaskBtn').addEventListener('click', function() {
+            openNewTaskModal(projectId);
+        });
+
+        document.getElementById('saveTaskBtn').addEventListener('click', function() {
+            saveTask(projectId);
+        });
+
+        document.getElementById('addMemberBtn').addEventListener('click', function() {
+            addMember(projectId);
+        });
+
+        document.getElementById('saveProjectBtn').addEventListener('click', function() {
+            saveProject(projectId);
+        });
+
+        document.getElementById('addCommentBtn').addEventListener('click', function() {
+            addComment();
+        });
+
+        document.getElementById('syncGoogleCalendarBtn').addEventListener('click', function() {
+            syncTaskWithGoogleCalendar();
+        });
+    });
+
+    /**
+     * Загружает данные проекта
+     */
+    async function loadProjectData(projectId) {
+        try {
+            const response = await fetch(`/api/projects/${projectId}/`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить данные проекта');
+            }
+
+            const project = await response.json();
+
+            // Обновляем информацию о проекте
+            document.getElementById('projectTitle').textContent = project.name;
+            document.getElementById('projectDescription').textContent = project.description || 'Описание отсутствует';
+
+            // Обновляем прогресс
+            document.getElementById('projectProgress').style.width = `${project.progress_percentage}%`;
+            document.getElementById('projectProgress').textContent = `${project.progress_percentage}%`;
+            document.getElementById('projectProgress').setAttribute('aria-valuenow', project.progress_percentage);
+
+            // Обновляем статистику
+            document.getElementById('totalTasks').textContent = project.task_count;
+            document.getElementById('completedTasks').textContent = Math.round(project.task_count * project.progress_percentage / 100);
+
+        } catch (error) {
+            console.error('Ошибка при загрузке данных проекта:', error);
+            alert('Не удалось загрузить данные проекта. Пожалуйста, попробуйте позже.');
+        }
+    }
+
+    /**
+     * Загружает канбан-доску
+     */
+    async function loadKanban(projectId) {
+        try {
+            const response = await fetch(`/api/projects/${projectId}/kanban/`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить канбан-доску');
+            }
+
+            const kanbanData = await response.json();
+
+            // Создаем канбан-доску
+            createKanbanBoard(kanbanData, projectId);
+
+        } catch (error) {
+            console.error('Ошибка при загрузке канбан-доски:', error);
+            document.getElementById('kanbanBoard').innerHTML = `
+                <div class="alert alert-danger w-100">
+                    Не удалось загрузить канбан-доску. Пожалуйста, попробуйте позже.
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Создает канбан-доску
+     */
+    function createKanbanBoard(kanbanData, projectId) {
+        const kanbanBoard = document.getElementById('kanbanBoard');
+        kanbanBoard.innerHTML = '';
+
+        // Создаем колонки для каждого статуса
+        const statuses = Object.keys(kanbanData);
+
+        statuses.forEach(status => {
+            const column = document.createElement('div');
+            column.className = 'kanban-column';
+            column.dataset.status = status;
+
+            const header = document.createElement('div');
+            header.className = 'kanban-column-header';
+            header.textContent = `${kanbanData[status].name} (${kanbanData[status].tasks.length})`;
+
+            const body = document.createElement('div');
+            body.className = 'kanban-column-body';
+            body.dataset.status = status;
+
+            // Добавляем задачи в колонку
+            kanbanData[status].tasks.forEach(task => {
+                const taskElement = createTaskElement(task);
+                body.appendChild(taskElement);
+            });
+
+            column.appendChild(header);
+            column.appendChild(body);
+            kanbanBoard.appendChild(column);
+
+            // Инициализируем Sortable.js для drag-and-drop
+            new Sortable(body, {
+                group: 'kanban',
+                animation: 150,
+                ghostClass: 'kanban-item-ghost',
+                chosenClass: 'kanban-item-chosen',
+                dragClass: 'kanban-item-drag',
+                onEnd: function(evt) {
+                    // Если задача была перемещена в другую колонку
+                    if (evt.from !== evt.to) {
+                        const taskId = evt.item.dataset.id;
+                        const newStatus = evt.to.dataset.status;
+                        updateTaskStatus(taskId, newStatus, projectId);
+                    }
+                }
+            });
+        });
+    }
+
+    /**
+     * Создает элемент задачи для канбан-доски
+     */
+    function createTaskElement(task) {
+        const taskElement = document.createElement('div');
+        taskElement.className = 'kanban-item';
+        taskElement.dataset.id = task.id;
+        taskElement.dataset.status = task.status;
+
+        // Определяем цвет для приоритета
+        let priorityClass = '';
+        switch (task.priority) {
+            case 'Критический': priorityClass = 'text-danger'; break;
+            case 'Высокий': priorityClass = 'text-warning'; break;
+            case 'Средний': priorityClass = 'text-info'; break;
+            case 'Низкий': priorityClass = 'text-success'; break;
+            default: priorityClass = 'text-secondary';
+        }
+
+        // Формируем информацию об исполнителе
+        let assigneeText = 'Не назначен';
+        if (task.assignee) {
+            if (task.assignee.first_name || task.assignee.last_name) {
+                assigneeText = `${task.assignee.first_name || ''} ${task.assignee.last_name || ''}`.trim();
+            } else {
+                assigneeText = task.assignee.username;
+            }
+        }
+
+        // Форматируем дату
+        let dueDate = 'Без срока';
+        if (task.due_date) {
+            dueDate = new Date(task.due_date).toLocaleString('ru-RU', {
+                year: 'numeric',
+                month: 'numeric',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            if (task.is_overdue) {
+                dueDate = `<span class="overdue">${dueDate}</span>`;
+            }
+        }
+
+        taskElement.innerHTML = `
+            <div class="kanban-item-title d-flex justify-content-between align-items-center">
+                <span>${task.title}</span>
+                <span class="${priorityClass}"><i class="fas fa-flag"></i></span>
+            </div>
+            <div class="kanban-item-info">
+                <div><i class="fas fa-user me-1"></i> ${assigneeText}</div>
+                <div><i class="fas fa-calendar me-1"></i> ${dueDate}</div>
+                <div><i class="fas fa-comment me-1"></i> ${task.comments_count || 0} комментариев</div>
+            </div>
+        `;
+
+        // Добавляем обработчик клика для редактирования
+        taskElement.addEventListener('click', function(e) {
+            // Предотвращаем всплытие события, чтобы не мешать drag-and-drop
+            e.stopPropagation();
+            openEditTaskModal(task);
+        });
+
+        return taskElement;
+    }
+
+    /**
+     * Обновляет статус задачи
+     */
+    async function updateTaskStatus(taskId, newStatus, projectId) {
+        try {
+            const response = await fetch(`/api/tasks/${taskId}/status/`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось обновить статус задачи');
+            }
+
+            // Обновляем данные проекта и канбан-доску
+            loadProjectData(projectId);
+            loadKanban(projectId);
+
+        } catch (error) {
+            console.error('Ошибка при обновлении статуса задачи:', error);
+            alert('Не удалось обновить статус задачи. Пожалуйста, попробуйте позже.');
+            // Перезагружаем канбан-доску, чтобы вернуть задачу на прежнее место
+            loadKanban(projectId);
+        }
+    }
+
+    /**
+     * Открывает модальное окно для создания новой задачи
+     */
+    async function openNewTaskModal(projectId) {
+        // Очищаем форму
+        document.getElementById('taskForm').reset();
+        document.getElementById('taskId').value = '';
+
+        // Устанавливаем заголовок модального окна
+        document.getElementById('taskModalLabel').textContent = 'Новая задача';
+
+        // Скрываем секцию комментариев для новой задачи
+        document.getElementById('commentsSection').style.display = 'none';
+
+        // Скрываем кнопку синхронизации для новой задачи
+        document.getElementById('syncGoogleCalendarBtn').style.display = 'none';
+
+        // Загружаем список участников проекта
+        await loadProjectMembers(projectId);
+
+        // Открываем модальное окно
+        const modal = new bootstrap.Modal(document.getElementById('taskModal'));
+        modal.show();
+    }
+
+    /**
+     * Открывает модальное окно для редактирования задачи
+     */
+    async function openEditTaskModal(task) {
+        // Очищаем форму
+        document.getElementById('taskForm').reset();
+
+        // Устанавливаем заголовок модального окна
+        document.getElementById('taskModalLabel').textContent = 'Редактирование задачи';
+
+        // Заполняем форму данными задачи
+        document.getElementById('taskId').value = task.id;
+        document.getElementById('taskTitle').value = task.title;
+        document.getElementById('taskDescription').value = task.description || '';
+        document.getElementById('taskStatus').value = task.status;
+        document.getElementById('taskPriority').value = task.priority || 'Без приоритета';
+
+        // Форматируем дату для input datetime-local
+        if (task.due_date) {
+            const dueDate = new Date(task.due_date);
+            const formattedDate = dueDate.toISOString().slice(0, 16);
+            document.getElementById('taskDueDate').value = formattedDate;
+        }
+
+        // Загружаем список участников проекта
+        await loadProjectMembers(task.project);
+
+        // Устанавливаем исполнителя, если он есть
+        if (task.assignee) {
+            document.getElementById('taskAssignee').value = task.assignee.id;
+        }
+
+        // Показываем секцию комментариев для существующей задачи
+        document.getElementById('commentsSection').style.display = 'block';
+
+        // Показываем кнопку синхронизации для существующей задачи
+        document.getElementById('syncGoogleCalendarBtn').style.display = 'inline-block';
+
+        // Загружаем комментарии к задаче
+        loadComments(task.id);
+
+        // Открываем модальное окно
+        const modal = new bootstrap.Modal(document.getElementById('taskModal'));
+        modal.show();
+    }
+
+    /**
+     * Загружает комментарии к задаче
+     */
+    async function loadComments(taskId) {
+        try {
+            const response = await fetch(`/api/tasks/${taskId}/comments/`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить комментарии');
+            }
+
+            const comments = await response.json();
+
+            // Отображаем комментарии
+            const commentsContainer = document.getElementById('commentsList');
+
+            if (comments.length === 0) {
+                commentsContainer.innerHTML = `
+                    <div class="text-center py-3">
+                        <small class="text-muted">Комментариев пока нет</small>
+                    </div>
+                `;
+                return;
+            }
+
+            commentsContainer.innerHTML = '';
+
+            comments.forEach(comment => {
+                const commentDate = new Date(comment.created_at).toLocaleString('ru-RU');
+
+                const commentElement = document.createElement('div');
+                commentElement.className = 'card mb-2';
+                commentElement.innerHTML = `
+                    <div class="card-body py-2">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <strong>${comment.author_name}</strong>
+                            <small class="text-muted">${commentDate}</small>
+                        </div>
+                        <p class="mb-0">${comment.text}</p>
+                    </div>
+                `;
+
+                commentsContainer.appendChild(commentElement);
+            });
+        } catch (error) {
+            console.error('Ошибка при загрузке комментариев:', error);
+            document.getElementById('commentsList').innerHTML = `
+                <div class="alert alert-danger py-2">
+                    Не удалось загрузить комментарии
+                </div>
+            `;
+        }
+    }
+
+    /**
+     * Добавляет комментарий к задаче
+     */
+    async function addComment() {
+        const taskId = document.getElementById('taskId').value;
+        const commentText = document.getElementById('newComment').value.trim();
+
+        if (!commentText) {
+            alert('Пожалуйста, введите текст комментария');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/tasks/${taskId}/add_comment/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify({ text: commentText })
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось добавить комментарий');
+            }
+
+            // Очищаем поле ввода
+            document.getElementById('newComment').value = '';
+
+            // Перезагружаем комментарии
+            loadComments(taskId);
+        } catch (error) {
+            console.error('Ошибка при добавлении комментария:', error);
+            alert('Не удалось добавить комментарий. Пожалуйста, попробуйте позже.');
+        }
+    }
+
+    /**
+     * Загружает список участников проекта
+     */
+    async function loadProjectMembers(projectId) {
+        try {
+            const response = await fetch(`/api/projects/${projectId}/`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить данные проекта');
+            }
+
+            const project = await response.json();
+
+            // Получаем список участников
+            const members = project.members;
+
+            // Заполняем select для исполнителя
+            const assigneeSelect = document.getElementById('taskAssignee');
+            assigneeSelect.innerHTML = '<option value="">Не назначен</option>';
+
+            members.forEach(member => {
+                const option = document.createElement('option');
+                option.value = member.id;
+
+                let name = member.username;
+                if (member.first_name || member.last_name) {
+                    name = `${member.first_name || ''} ${member.last_name || ''}`.trim();
+                    name += ` (${member.username})`;
+                }
+
+                option.textContent = name;
+                assigneeSelect.appendChild(option);
+            });
+
+        } catch (error) {
+            console.error('Ошибка при загрузке участников проекта:', error);
+        }
+    }
+
+    /**
+     * Сохраняет задачу
+     */
+    async function saveTask(projectId) {
+        const taskId = document.getElementById('taskId').value;
+        const title = document.getElementById('taskTitle').value;
+        const description = document.getElementById('taskDescription').value;
+        const status = document.getElementById('taskStatus').value;
+        const priority = document.getElementById('taskPriority').value;
+        const assigneeId = document.getElementById('taskAssignee').value;
+        const dueDate = document.getElementById('taskDueDate').value;
+
+        if (!title) {
+            alert('Пожалуйста, введите заголовок задачи');
+            return;
+        }
+
+        try {
+            const url = taskId ? `/api/tasks/${taskId}/` : '/api/tasks/';
+            const method = taskId ? 'PUT' : 'POST';
+
+            const data = {
+                title,
+                description,
+                status,
+                priority,
+                assignee_id: assigneeId || null,
+                due_date: dueDate || null
+            };
+
+            // Если это новая задача, добавляем ID проекта
+            if (!taskId) {
+                data.project = parseInt(projectId);
+            }
+
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось сохранить задачу');
+            }
+
+            // Закрываем модальное окно
+            const modal = bootstrap.Modal.getInstance(document.getElementById('taskModal'));
+            modal.hide();
+
+            // Обновляем данные проекта и канбан-доску
+            loadProjectData(projectId);
+            loadKanban(projectId);
+
+        } catch (error) {
+            console.error('Ошибка при сохранении задачи:', error);
+            alert('Не удалось сохранить задачу. Пожалуйста, попробуйте позже.');
+        }
+    }
+
+    /**
+     * Открывает модальное окно для редактирования проекта
+     */
+    async function openEditProjectModal(projectId) {
+        try {
+            const response = await fetch(`/api/projects/${projectId}/`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить данные проекта');
+            }
+
+            const project = await response.json();
+
+            // Заполняем форму данными проекта
+            document.getElementById('projectId').value = project.id;
+            document.getElementById('projectName').value = project.name;
+            document.getElementById('projectDescription').value = project.description || '';
+
+            // Устанавливаем заголовок модального окна
+            document.getElementById('projectModalLabel').textContent = 'Редактирование проекта';
+
+            // Открываем модальное окно редактирования проекта
+            const modal = new bootstrap.Modal(document.getElementById('projectModal'));
+            modal.show();
+
+        } catch (error) {
+            console.error('Ошибка при загрузке данных проекта:', error);
+            alert('Не удалось загрузить данные проекта. Пожалуйста, попробуйте позже.');
+        }
+    }
+
+    /**
+     * Сохраняет проект
+     */
+    async function saveProject(projectId) {
+        const name = document.getElementById('projectName').value;
+        const description = document.getElementById('projectDescription').value;
+
+        if (!name) {
+            alert('Пожалуйста, введите название проекта');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/projects/${projectId}/`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify({ name, description })
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось сохранить проект');
+            }
+
+            // Закрываем модальное окно
+            const modal = bootstrap.Modal.getInstance(document.getElementById('projectModal'));
+            modal.hide();
+
+            // Обновляем данные проекта
+            loadProjectData(projectId);
+
+            // Показываем сообщение об успехе
+            alert('Проект успешно обновлен');
+        } catch (error) {
+            console.error('Ошибка при сохранении проекта:', error);
+            alert('Не удалось сохранить проект. Пожалуйста, попробуйте позже.');
+        }
+    }
+
+    /**
+     * Открывает модальное окно для управления участниками проекта
+     */
+    async function openMembersModal(projectId) {
+        try {
+            // Загружаем список всех пользователей
+            const usersResponse = await fetch('/api/projects/all_users/', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!usersResponse.ok) {
+                throw new Error('Не удалось загрузить список пользователей');
+            }
+
+            const users = await usersResponse.json();
+
+            // Загружаем данные проекта для получения списка участников
+            const projectResponse = await fetch(`/api/projects/${projectId}/`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!projectResponse.ok) {
+                throw new Error('Не удалось загрузить данные проекта');
+            }
+
+            const project = await projectResponse.json();
+
+            // Заполняем select для добавления участников
+            const newMemberSelect = document.getElementById('newMember');
+            newMemberSelect.innerHTML = '<option value="">Выберите пользователя</option>';
+
+            // Получаем ID текущих участников
+            const memberIds = project.members.map(member => member.id);
+
+            // Добавляем только тех пользователей, которые еще не участвуют в проекте
+            users.forEach(user => {
+                if (!memberIds.includes(user.id)) {
+                    const option = document.createElement('option');
+                    option.value = user.id;
+
+                    let name = user.username;
+                    if (user.first_name || user.last_name) {
+                        name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                        name += ` (${user.username})`;
+                    }
+
+                    option.textContent = name;
+                    newMemberSelect.appendChild(option);
+                }
+            });
+
+            // Заполняем список текущих участников
+            const membersList = document.getElementById('membersList');
+            membersList.innerHTML = '';
+
+            if (project.members.length === 0) {
+                membersList.innerHTML = '<li class="list-group-item text-center">В проекте нет участников</li>';
+            } else {
+                project.members.forEach(member => {
+                    const item = document.createElement('li');
+                    item.className = 'list-group-item d-flex justify-content-between align-items-center';
+
+                    let name = member.username;
+                    if (member.first_name || member.last_name) {
+                        name = `${member.first_name || ''} ${member.last_name || ''}`.trim();
+                        name += ` (${member.username})`;
+                    }
+
+                    item.innerHTML = `
+                        <span>${name}</span>
+                    `;
+
+                    // Добавляем кнопку удаления (кроме создателя проекта)
+                    if (member.id !== project.created_by.id) {
+                        const removeBtn = document.createElement('button');
+                        removeBtn.className = 'btn btn-sm btn-outline-danger';
+                        removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                        removeBtn.dataset.userId = member.id;
+
+                        removeBtn.addEventListener('click', function() {
+                            removeMember(projectId, this.dataset.userId);
+                        });
+
+                        item.appendChild(removeBtn);
+                    } else {
+                        const creatorBadge = document.createElement('span');
+                        creatorBadge.className = 'badge bg-primary';
+                        creatorBadge.textContent = 'Создатель';
+                        item.appendChild(creatorBadge);
+                    }
+
+                    membersList.appendChild(item);
+                });
+            }
+
+            // Открываем модальное окно
+            const modal = new bootstrap.Modal(document.getElementById('membersModal'));
+            modal.show();
+
+        } catch (error) {
+            console.error('Ошибка при загрузке данных:', error);
+            alert('Не удалось загрузить данные. Пожалуйста, попробуйте позже.');
+        }
+    }
+
+    /**
+     * Добавляет участника в проект
+     */
+    async function addMember(projectId) {
+        const userId = document.getElementById('newMember').value;
+
+        if (!userId) {
+            alert('Пожалуйста, выберите пользователя');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/projects/${projectId}/add_member/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify({ user_id: parseInt(userId) })
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось добавить участника');
+            }
+
+            // Закрываем модальное окно перед обновлением
+            const modalElement = document.getElementById('membersModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalElement);
+            if (modalInstance) {
+                modalInstance.hide();
+            }
+
+            // Удаляем backdrop вручную, если он остался
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+
+            // Убираем класс modal-open с body
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+
+            // Небольшая задержка перед обновлением интерфейса
+            setTimeout(() => {
+                // Обновляем модальное окно
+                openMembersModal(projectId);
+            }, 300);
+
+        } catch (error) {
+            console.error('Ошибка при добавлении участника:', error);
+            alert('Не удалось добавить участника. Пожалуйста, попробуйте позже.');
+
+            // Удаляем backdrop вручную при ошибке
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                backdrop.remove();
+            }
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+        }
+    }
+
+    /**
+     * Удаляет участника из проекта
+     */
+    async function removeMember(projectId, userId) {
+        if (!confirm('Вы уверены, что хотите удалить этого участника из проекта?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/projects/${projectId}/remove_member/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify({ user_id: parseInt(userId) })
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось удалить участника');
+            }
+
+            // Обновляем модальное окно
+            openMembersModal(projectId);
+
+        } catch (error) {
+            console.error('Ошибка при удалении участника:', error);
+            alert('Не удалось удалить участника. Пожалуйста, попробуйте позже.');
+        }
+    }
+
+    /**
+     * Синхронизирует задачу с Google Calendar
+     */
+    async function syncTaskWithGoogleCalendar() {
+        const taskId = document.getElementById('taskId').value;
+
+        if (!taskId) {
+            alert('Сначала сохраните задачу');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/tasks/${taskId}/sync_calendar/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'redirect') {
+                window.location.href = data.url;
+                return;
+            }
+
+            if (data.status === 'success') {
+                alert(data.message);
+                if (data.event_link) {
+                    if (confirm('Событие создано. Хотите открыть его в Google Calendar?')) {
+                        window.open(data.event_link, '_blank');
+                    }
+                }
+            } else {
+                throw new Error(data.message || 'Ошибка при синхронизации');
+            }
+        } catch (error) {
+            console.error('Ошибка при синхронизации с Google Calendar:', error);
+            alert('Не удалось синхронизировать задачу с Google Calendar. Пожалуйста, попробуйте позже.');
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,374 @@
+{% extends 'base.html' %}
+
+{% block title %}Профиль - ProjectFlow{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Профиль пользователя</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-3 text-center">
+                            <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto" style="width: 100px; height: 100px;">
+                                <i class="fas fa-user fa-3x text-primary"></i>
+                            </div>
+                        </div>
+                        <div class="col-md-9">
+                            <h3 id="userName">Загрузка...</h3>
+                            <p class="text-muted" id="userEmail">Загрузка...</p>
+                            <p id="memberSince" class="mb-0">Зарегистрирован: <span>Загрузка...</span></p>
+                        </div>
+                    </div>
+                    
+                    <h5 class="border-bottom pb-2 mb-3">Редактировать профиль</h5>
+                    
+                    <form id="profileForm">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="firstName" class="form-label">Имя</label>
+                                <input type="text" class="form-control" id="firstName">
+                            </div>
+                          <div class="col-md-6">
+                                <label for="lastName" class="form-label">Фамилия</label>
+                                <input type="text" class="form-control" id="lastName">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" disabled>
+                            <div class="form-text">Email нельзя изменить.</div>
+                        </div>
+
+                        <hr>
+
+                        <h6>Изменить пароль</h6>
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label">Текущий пароль</label>
+                            <input type="password" class="form-control" id="currentPassword">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="newPassword" class="form-label">Новый пароль</label>
+                                <input type="password" class="form-control" id="newPassword">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="confirmNewPassword" class="form-label">Подтверждение нового пароля</label>
+                                <input type="password" class="form-control" id="confirmNewPassword">
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Статистика</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4 mb-3">
+                            <h2 id="projectsCount">0</h2>
+                            <p class="text-muted mb-0">Проектов</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <h2 id="tasksCount">0</h2>
+                            <p class="text-muted mb-0">Задач</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <h2 id="completedTasksCount">0</h2>
+                            <p class="text-muted mb-0">Завершенных задач</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Интеграции</h4>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="mb-0">Google Календарь</h5>
+                            <p class="text-muted mb-0" id="googleCalendarStatus">Не подключен</p>
+                        </div>
+                        <button class="btn btn-outline-primary" id="googleCalendarBtn">Подключить</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Загружаем данные пользователя
+        loadUserProfile();
+
+        // Загружаем статистику
+        loadUserStatistics();
+
+        // Проверяем статус подключения Google Calendar
+        checkGoogleCalendarStatus();
+
+        // Добавляем обработчик для формы профиля
+        document.getElementById('profileForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveProfile();
+        });
+
+        // Добавляем обработчик для кнопки подключения Google Calendar
+        document.getElementById('googleCalendarBtn').addEventListener('click', function() {
+            toggleGoogleCalendar();
+        });
+    });
+
+    /**
+     * Загружает данные профиля пользователя
+     */
+    async function loadUserProfile() {
+        try {
+            const response = await fetch('/api/auth/me/', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить данные пользователя');
+            }
+
+            const userData = await response.json();
+
+            // Заполняем данные в профиле
+            document.getElementById('userName').textContent =
+                (userData.first_name || userData.last_name)
+                    ? `${userData.first_name} ${userData.last_name}`.trim()
+                    : userData.username;
+
+            document.getElementById('userEmail').textContent = userData.email;
+
+            // Форматируем дату регистрации
+            const createdAt = new Date(userData.date_joined || userData.created_at).toLocaleDateString('ru-RU');
+            document.getElementById('memberSince').querySelector('span').textContent = createdAt;
+
+            // Заполняем форму
+            document.getElementById('firstName').value = userData.first_name || '';
+            document.getElementById('lastName').value = userData.last_name || '';
+            document.getElementById('email').value = userData.email || '';
+
+        } catch (error) {
+            console.error('Ошибка при загрузке профиля:', error);
+            alert('Не удалось загрузить данные профиля. Пожалуйста, попробуйте позже.');
+        }
+    }
+
+    /**
+     * Загружает статистику пользователя
+     */
+    async function loadUserStatistics() {
+        try {
+            const response = await fetch('/api/auth/statistics/', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось загрузить статистику');
+            }
+
+            const stats = await response.json();
+
+            // Обновляем статистику на странице
+            document.getElementById('projectsCount').textContent = stats.projects_count || 0;
+            document.getElementById('tasksCount').textContent = stats.tasks_count || 0;
+            document.getElementById('completedTasksCount').textContent = stats.completed_tasks_count || 0;
+
+        } catch (error) {
+            console.error('Ошибка при загрузке статистики:', error);
+            // В случае ошибки не показываем уведомление, просто оставляем нули
+        }
+    }
+
+    /**
+     * Проверяет статус подключения Google Calendar
+     */
+    async function checkGoogleCalendarStatus() {
+        try {
+            const response = await fetch('/api/calendar/status/', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Не удалось проверить статус Google Calendar');
+            }
+
+            const status = await response.json();
+
+            const statusElement = document.getElementById('googleCalendarStatus');
+            const buttonElement = document.getElementById('googleCalendarBtn');
+
+            if (status.connected) {
+                statusElement.textContent = 'Подключен';
+                statusElement.classList.add('text-success');
+                buttonElement.textContent = 'Отключить';
+                buttonElement.classList.remove('btn-outline-primary');
+                buttonElement.classList.add('btn-outline-danger');
+            } else {
+                statusElement.textContent = 'Не подключен';
+                statusElement.classList.remove('text-success');
+                buttonElement.textContent = 'Подключить';
+                buttonElement.classList.add('btn-outline-primary');
+                buttonElement.classList.remove('btn-outline-danger');
+            }
+
+        } catch (error) {
+            console.error('Ошибка при проверке статуса Google Calendar:', error);
+            // В случае ошибки показываем статус "Не подключен"
+            document.getElementById('googleCalendarStatus').textContent = 'Не подключен';
+        }
+    }
+
+    /**
+     * Сохраняет изменения в профиле
+     */
+    async function saveProfile() {
+        const firstName = document.getElementById('firstName').value;
+        const lastName = document.getElementById('lastName').value;
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+
+        // Формируем данные для отправки
+        const data = {
+            first_name: firstName,
+            last_name: lastName
+        };
+
+        // Если введены пароли, добавляем их в запрос
+        if (currentPassword || newPassword || confirmNewPassword) {
+            // Проверяем, что оба поля нового пароля заполнены
+            if (!newPassword || !confirmNewPassword) {
+                alert('Пожалуйста, заполните оба поля нового пароля');
+                return;
+            }
+
+            // Проверяем совпадение паролей
+            if (newPassword !== confirmNewPassword) {
+                alert('Новые пароли не совпадают');
+                return;
+            }
+
+            // Проверяем, что введен текущий пароль
+            if (!currentPassword) {
+                alert('Пожалуйста, введите текущий пароль');
+                return;
+            }
+
+            // Добавляем пароли в запрос
+            data.current_password = currentPassword;
+            data.new_password = newPassword;
+        }
+
+        try {
+            const response = await fetch('/api/auth/profile/update/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Не удалось обновить профиль');
+            }
+
+            // Очищаем поля паролей
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmNewPassword').value = '';
+
+            // Обновляем данные профиля
+            loadUserProfile();
+
+            // Показываем сообщение об успехе
+            alert('Профиль успешно обновлен');
+
+        } catch (error) {
+            console.error('Ошибка при обновлении профиля:', error);
+            alert(error.message || 'Не удалось обновить профиль. Пожалуйста, попробуйте позже.');
+        }
+    }
+
+    /**
+     * Подключает или отключает Google Calendar
+     */
+    async function toggleGoogleCalendar() {
+        const statusElement = document.getElementById('googleCalendarStatus');
+        const isConnected = statusElement.textContent === 'Подключен';
+
+        if (isConnected) {
+            // Отключаем Google Calendar
+            try {
+                const response = await fetch('/api/calendar/disconnect/', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Не удалось отключить Google Calendar');
+                }
+
+                // Обновляем статус
+                checkGoogleCalendarStatus();
+                alert('Google Calendar успешно отключен');
+
+            } catch (error) {
+                console.error('Ошибка при отключении Google Calendar:', error);
+                alert('Не удалось отключить Google Calendar. Пожалуйста, попробуйте позже.');
+            }
+        } else {
+            // Получаем URL для подключения Google Calendar
+            try {
+                const response = await fetch('/api/calendar/auth-url/', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Не удалось получить URL для подключения Google Calendar');
+                }
+
+                const data = await response.json();
+
+                // Открываем URL для авторизации
+                window.location.href = data.auth_url;
+
+            } catch (error) {
+                console.error('Ошибка при подключении Google Calendar:', error);
+                alert('Не удалось подключить Google Calendar. Пожалуйста, попробуйте позже.');
+            }
+        }
+    }
+</script>
+{% endblock %}
